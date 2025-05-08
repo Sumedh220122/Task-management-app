@@ -4,20 +4,6 @@ import plotly.express as px
 from datetime import datetime
 import json
 import os
-import yaml
-import streamlit_authenticator as stauth
-
-# Load configuration
-with open('config.yaml') as file:
-    config = yaml.safe_load(file)
-
-# Create the authenticator
-authenticator = stauth.Authenticate(
-    config['credentials'],
-    config['cookie']['name'],
-    config['cookie']['key'],
-    config['cookie']['expiry_days']
-)
 
 # Set page configuration
 st.set_page_config(
@@ -49,30 +35,54 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Authentication
-name, authentication_status, username = authenticator.login('Login', 'main')
+# Initialize session state for authentication
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
 
-if authentication_status == False:
-    st.error('Username/password is incorrect')
-elif authentication_status == None:
-    st.warning('Please enter your username and password')
-else:
-    # Initialize session state
+def check_password():
+    """Returns `True` if the user had the correct password."""
+    
+    if "password_correct" not in st.session_state:
+        st.session_state.password_correct = False
+        
+    if st.session_state.password_correct:
+        return True
+
+    st.title("🔐 Task Manager Login")
+    st.write("Enter the password to access the Task Manager app.")
+    
+    password = st.text_input("Password", type="password")
+    
+    # Get password from environment variable, default to 'streamlit123' if not set
+    correct_password = os.environ.get('STREAMLIT_APP_PASSWORD')
+    
+    if password:
+        if password == correct_password:
+            st.session_state.password_correct = True
+            st.rerun()
+            return True
+        else:
+            st.error("😕 Password incorrect")
+            return False
+    return False
+
+if check_password():
+    # Initialize session state for tasks
     if 'tasks' not in st.session_state:
         st.session_state.tasks = []
 
     # Load tasks from file if it exists
-    TASKS_FILE = f"tasks_{username}.json"
+    TASKS_FILE = "tasks.json"
     if os.path.exists(TASKS_FILE):
         with open(TASKS_FILE, "r") as f:
             st.session_state.tasks = json.load(f)
 
-    # Sidebar with logout and user info
+    # Main title with emoji
+    st.title("✨ Task Manager")
+    st.markdown("---")
+
+    # Sidebar for adding new tasks
     with st.sidebar:
-        st.write(f'Welcome *{name}*')
-        authenticator.logout('Logout', 'sidebar')
-        
-        st.markdown("---")
         st.header("Add New Task")
         task_name = st.text_input("Task Name")
         priority = st.select_slider(
@@ -98,10 +108,6 @@ else:
                 st.success("Task added successfully!")
             else:
                 st.error("Please enter a task name!")
-
-    # Main title with emoji
-    st.title("✨ Task Manager")
-    st.markdown("---")
 
     # Main content area
     col1, col2 = st.columns([2, 1])
