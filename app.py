@@ -53,8 +53,14 @@ def check_password():
     
     password = st.text_input("Password", type="password")
     
-    # Get password from environment variable, default to 'streamlit123' if not set
+    # Try to get password from environment variable first, then from secrets.toml
     correct_password = os.environ.get('STREAMLIT_APP_PASSWORD')
+    if not correct_password and 'STREAMLIT_APP_PASSWORD' in st.secrets:
+        correct_password = st.secrets['STREAMLIT_APP_PASSWORD']
+    
+    if not correct_password:
+        st.error("⚠️ No password configured! Set STREAMLIT_APP_PASSWORD in environment or secrets.toml")
+        return False
     
     if password:
         if password == correct_password:
